@@ -1,15 +1,23 @@
 import telebot
 from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
+import time
+import logging
+from requests.exceptions import ConnectionError, ReadTimeout
 
 # Your provided credentials
 BOT_TOKEN = '7982919097:AAHrM7hRB1FViwSqdWP_JKnE1tTF4AKeXY8'
 USER_ID = 6428327821
 GROUP_ID = -1002549085217
 
-bot = telebot.TeleBot(BOT_TOKEN)
-
 # Maximum file size (2GB in bytes)
 MAX_FILE_SIZE = 2 * 1024 * 1024 * 1024  # 2GB
+
+# Set up logging
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+logger = logging.getLogger(__name__)
+
+# Initialize bot with timeout
+bot = telebot.TeleBot(BOT_TOKEN, parse_mode=None, threaded=False)
 
 # Start command
 @bot.message_handler(commands=['start'])
@@ -65,6 +73,26 @@ def handle_file(message):
         bot.reply_to(message, "Here’s your permanent file link:", reply_markup=markup)
     except Exception as e:
         bot.reply_to(message, f"Error: {str(e)}")
+        logger.error(f"Error processing file: {str(e)}")
 
-# Start the bot
-bot.polling()
+# Polling with retry logic
+def start_polling():
+    retry_count = 0
+    max_retries = 5
+    while retry_count < max_retries:
+        try:
+            logger.info("Starting bot polling...")
+            bot.polling(none_stop=True, interval=0, timeout=20)
+        except (ConnectionError, ReadTimeout, ConnectionAbortedError) as e:
+            retry_count += 1
+            logger.error(f"Connection error: {str(e)}. Retry {retry_count}/{max_retries} in 5 seconds...")
+            time.sleep(5)
+            if retry_count >= max_retries:
+                logger.error("Max retries reached. Stopping bot.")
+                break
+        except Exception as e:
+            logger.error(f"Unexpected error: {str(e)}. Restarting polling in 5 seconds...")
+            time.sleep(5)
+
+if __name__ == "__main__":
+    start_polling()
