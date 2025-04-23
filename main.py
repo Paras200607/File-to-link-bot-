@@ -8,13 +8,16 @@ GROUP_ID = -1002549085217
 
 bot = telebot.TeleBot(BOT_TOKEN)
 
+# Maximum file size (2GB in bytes)
+MAX_FILE_SIZE = 2 * 1024 * 1024 * 1024  # 2GB
+
 # Start command
 @bot.message_handler(commands=['start'])
 def send_welcome(message):
     if message.from_user.id != USER_ID:
         bot.reply_to(message, "Sorry, this bot is private and only accessible to its owner.")
         return
-    bot.reply_to(message, "Send me a file, and I'll generate a permanent download link!")
+    bot.reply_to(message, "Send me a file (up to 2GB), and I'll generate a permanent download link!")
 
 # Handle all file types
 @bot.message_handler(content_types=['document', 'video', 'audio', 'photo'])
@@ -35,6 +38,12 @@ def handle_file(message):
             file_info = message.photo[-1]  # Highest resolution photo
         else:
             bot.reply_to(message, "Unsupported file type!")
+            return
+
+        # Check file size
+        file_size = file_info.file_size
+        if file_size > MAX_FILE_SIZE:
+            bot.reply_to(message, f"Error: File is too big ({file_size / (1024 * 1024):.2f} MB). Maximum size is 2GB.")
             return
 
         # Forward file to group
